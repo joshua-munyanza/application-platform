@@ -4,7 +4,7 @@ from google.genai import types
 import time
 from google.genai import errors
 
-MODEL = "gemini-3.5-flash"
+MODEL = "gemini-3.5-flash-lite"
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
