@@ -1,3 +1,4 @@
+import sys
 import os
 from typing import Optional
 
@@ -72,7 +73,11 @@ def arithmetic_ok(p):
 
 # Everything above only defines tools. The lines below are the first
 # ones that actually run, so every function already exists by then.
-text = read_pdf_text("data/payslip_001.pdf")
+# sys.argv holds the words typed after "python", so
+# "python extract_payslip.py data/payslip_002.pdf" lets us pick the file.
+# With no extra word we fall back to the good payslip.
+path = sys.argv[1] if len(sys.argv) > 1 else "data/payslip_001.pdf"
+text = read_pdf_text(path)
 
 if text is None:
     print("No text found: this looks like a scan, needs OCR")
