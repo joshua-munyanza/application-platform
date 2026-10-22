@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 from typing import Optional
 
 from google import genai
@@ -40,15 +40,18 @@ def read_pdf_text(path):
     return text
 
 
-def extract(text):
+def extract(contents):
+    # "contents" can be plain text OR a list holding a picture plus an
+    # instruction, so one function serves both routes.
     response = client.models.generate_content(
         model=MODEL,
-        contents=text,
+        contents=contents,
         config=types.GenerateContentConfig(
             # We forbid calculating on purpose: models are unreliable at
             # arithmetic, and our own code does the sums in arithmetic_ok.
             system_instruction=(
-                "You read payslip text and fill in the form. "
+                "You read a payslip, given as text or as an image, "
+                "and fill in the form. "
                 "Copy values exactly as written. "
                 "If a value is missing or unreadable, use null. "
                 "Never calculate, guess or invent a number. "
@@ -63,6 +66,23 @@ def extract(text):
     return response.parsed
 
 
+def load_payslip(path):
+    # Pictures go straight to the model. Text PDFs go through our own
+    # reader first, because reading real text is cheaper and more exact
+    # than asking a model to look at pixels.
+    if path.lower().endswith(".png"):
+        # "rb" means read raw bytes: an image is not text.
+        with open(path, "rb") as f:
+            image_bytes = f.read()
+        picture = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
+        return extract([picture, "This image is a payslip. Fill in the form."])
+
+    text = read_pdf_text(path)
+    if text is None:
+        return None
+    return extract(text)
+
+
 def arithmetic_ok(p):
     # None means "can't check", which is different from "checked and wrong".
     if p.gross_pay_kes is None or p.net_pay_kes is None:
@@ -73,16 +93,13 @@ def arithmetic_ok(p):
 
 # Everything above only defines tools. The lines below are the first
 # ones that actually run, so every function already exists by then.
-# sys.argv holds the words typed after "python", so
-# "python extract_payslip.py data/payslip_002.pdf" lets us pick the file.
-# With no extra word we fall back to the good payslip.
+# sys.argv holds the words typed after "python", so we can pick the file.
 path = sys.argv[1] if len(sys.argv) > 1 else "data/payslip_001.pdf"
-text = read_pdf_text(path)
+payslip = load_payslip(path)
 
-if text is None:
+if payslip is None:
     print("No text found: this looks like a scan, needs OCR")
 else:
-    payslip = extract(text)
     # JSON is just labelled boxes written as text. indent=2 makes it readable.
     print(payslip.model_dump_json(indent=2))
 
